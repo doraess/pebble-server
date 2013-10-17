@@ -144,16 +144,15 @@ my_http.createServer((request, response) ->
                   forecast.number = parseInt component.long_name
                 if 'route' in component.types
                   forecast.street = component.long_name.stripAccents()
-                  forecast.street = tidyString forecast.street
-                
+                  forecast.street = forecast.street                  
                 if 'locality' in component.types
                   forecast.city = component.long_name.stripAccents()
               #forecast.number = parseInt place.results[0].address_components[0].long_name
               #forecast.street = place.results[0].address_components[1].long_name.stripAccents()
             response.writeHeader 200,
               'Content-Type': 'application/json'
-            response.write JSON.stringify 
-              #"1": ['B', icons[forecast.icon].icon]
+            content = 
+            #"1": ['B', icons[forecast.icon].icon]
               #"2": ['b', forecast.temperature]
               #"3": ['B', forecast.humidity]
               #"4": ['B', forecast.number]
@@ -161,12 +160,19 @@ my_http.createServer((request, response) ->
               #"6": forecast.city
               "1": ['B', icons[forecast.icon].icon]
               "2": forecast.temperature + "° " + forecast.humidity + "%"
-              "5": forecast.street + ", " + forecast.number
               "6": forecast.city
+              "5": ''
+            ln = 124 - (49 + 7*Object.keys(content).length + 1 + content["2"].length + content["6"].length + [(forecast.number.toString().length + 1) if forecast.number])
+            content["5"] = tidyString(forecast.street, ln) + [("," + forecast.number) if forecast.number]
+            
+            #content["5"] = tidyString(forecast.street, ln) + [(", " + forecast.number) if forecast.number]
+            response.write JSON.stringify content
+              
             response.end()
             console.log "Enviado respuesta --->"
             console.log "    Temp: #{forecast.temperature} - Hum: #{forecast.humidity} - #{forecast.icon}"
             console.log "    Lugar: #{forecast.street}, #{forecast.number} - #{forecast.city}"
+            console.log JSON.stringify content
 ).listen 3000
 console.log "##############################################################"
 console.log "################### Server Running on 3000 ###################"
@@ -180,7 +186,7 @@ IsJson = (str) ->
     return false
   true
   
-tidyString = (str) ->
+tidyString = (str, ln) ->
   str = str.replace /Calle de la /, ""
   str = str.replace /Calle del /, ""
   str = str.replace /Calle de /, ""
@@ -193,7 +199,7 @@ tidyString = (str) ->
   str = str.replace /Paseo del /, ""
   str = str.replace /Paseo de /, ""
   str = str.replace /Paseo /, ""
-  str = str.truncate 20
+  str = str.truncate ln
   
 
   
