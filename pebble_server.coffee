@@ -1,10 +1,102 @@
-my_request = require "request"
-my_http = require "http"
-fs = require "fs"
-path = require "path"
-jade = require "jade"
+my_request = require 'request'
+fs = require 'fs'
+path = require 'path'
+jade = require 'jade'
 mime = require 'mime'
+seq = require 'seq'
 
+server = (request, response) ->
+  api_key = "cadac7d880dc4faa96e18a35a96846ec"
+  if request.method == 'GET'
+    current_time = new Date()
+    filePath = request.url
+    if filePath is "/"
+      fs.readFile 'jade/pebble_server.jade', 'utf8', (err, data) ->
+        if err 
+          throw err
+        fn = jade.compile data,
+          'pretty': true
+        html = fn 
+          time: current_time.getHours() + ":" + current_time.getMinutes() + ":" + current_time.getSeconds()
+          data: forecast
+        response.setHeader 'Content-Type', 'text/html'
+        response.writeHead 200
+        response.end html
+        
+    else
+      content_type = mime.lookup filePath
+      fs.readFile __dirname + filePath, (err, data) ->
+        response.setHeader 'Content-Type', content_type
+        response.writeHead 200
+        response.end data
+      
+  if request.method == 'POST'
+    request.on "data", (data)->
+      params = JSON.parse data.toString('utf-8')
+      latitude = params["1"]/10000
+      longitude = params["2"]/10000
+      forecast.latitude = latitude
+      forecast.longitude = longitude
+      units = params["3"]
+      date = new Date()
+      forecast.time = pad2(date.getHours()) + ":" + pad2(date.getMinutes()) + ":" + pad2(date.getSeconds())
+      console.log "--------- #{date} ---------"
+      console.log "Lat: #{latitude} - Long: #{longitude} - Units: #{units}"
+      seq()
+        .par( 'weather', ->
+          url = "http://api.forecast.io/forecast/#{api_key}/#{latitude},#{longitude}?units=#{units}&exclude=hourly,daily,alerts"
+          my_request url, this 
+          )
+        .par( 'location', ->
+          url = "http://maps.googleapis.com/maps/api/geocode/json?latlng=#{latitude},#{longitude}&sensor=true"
+          my_request url, this          )
+        .seq( (weather, location)->
+          weather = JSON.parse this.vars['weather'].body
+          location = JSON.parse this.vars['location'].body
+          forecast.icon = weather.currently.icon
+          forecast.font = icons[forecast.icon].font
+          forecast.temperature = Math.round weather.currently.temperature 
+          forecast.humidity = Math.round weather.currently.humidity*100
+          forecast.clouds = Math.round weather.currently.cloudCover*100
+          forecast.rain = (weather.currently.precipIntensity*2.54).toFixed(2)
+          forecast.rain_prob = Math.round weather.currently.precipProbability*100
+          forecast.wind = Math.round weather.currently.windSpeed*1.609344
+          forecast.wind_dir = Math.round weather.currently.windBearing
+          for component in location.results[0].address_components
+                #console.log component
+            if 'street_number' in component.types
+              forecast.number = parseInt component.long_name
+            if 'route' in component.types
+              forecast.street = component.long_name.stripAccents()
+              forecast.street = forecast.street                  
+            if 'locality' in component.types
+              forecast.city = component.long_name.stripAccents()
+          response.writeHeader 200,
+            'Content-Type': 'application/json'
+          content = 
+            "1": ['B', icons[forecast.icon].icon]
+            "2": forecast.temperature + "° " + forecast.humidity + "%"
+            "6": forecast.city
+            "5": ''
+          ln = 124 - (49 + 7*Object.keys(content).length + 1 + content["2"].length + content["6"].length)
+          if forecast.number
+            ln = ln - (forecast.number.toString().length + 2) 
+          content["5"] = tidyString(forecast.street, ln) + [(", " + forecast.number) if forecast.number]
+          response.write JSON.stringify content              
+          response.end()
+          console.log "Enviado respuesta --->"
+          console.log "    Temp: #{forecast.temperature} - Hum: #{forecast.humidity} - #{forecast.icon}"
+          console.log "    Lugar: #{forecast.street}, #{forecast.number} - #{forecast.city}"
+        )
+
+app = require('http').createServer(server)
+app.listen 3000
+
+socketio = require('socket.io').listen(app)
+
+console.log "##############################################################"
+console.log "################### Server Running on 3000 ###################"
+console.log "##############################################################"
 
 icons =
   'clear-day' :  
@@ -70,115 +162,6 @@ pad2 = (number) ->
 String::truncate = (n) ->
   @substr(0, n - 1)
 
-my_http.createServer((request, response) ->
-  api_key = "cadac7d880dc4faa96e18a35a96846ec"
-  if request.method == 'GET'
-    current_time = new Date()
-    filePath = request.url
-    if filePath is "/"
-      fs.readFile 'jade/pebble_server.jade', 'utf8', (err, data) ->
-        if err 
-          throw err
-        fn = jade.compile data,
-          'pretty': true
-        html = fn 
-          time: current_time.getHours() + ":" + current_time.getMinutes() + ":" + current_time.getSeconds()
-          data: forecast
-        response.setHeader 'Content-Type', 'text/html'
-        response.writeHead 200
-        response.end html
-        
-    else
-      content_type = mime.lookup filePath
-      fs.readFile __dirname + filePath, (err, data) ->
-        response.setHeader 'Content-Type', content_type
-        response.writeHead 200
-        response.end data
-      
-  if request.method == 'POST'
-    request.on "data", (data)->
-      params = JSON.parse data.toString('utf-8')
-      latitude = params["1"]/10000
-      longitude = params["2"]/10000
-      forecast.latitude = latitude
-      forecast.longitude = longitude
-      units = params["3"]
-      date = new Date()
-      forecast.time = pad2(date.getHours()) + ":" + pad2(date.getMinutes()) + ":" + pad2(date.getSeconds())
-      console.log "--------- #{date} ---------"
-      console.log "Lat: #{latitude} - Long: #{longitude} - Units: #{units}"
-      url = "http://api.forecast.io/forecast/#{api_key}/#{latitude},#{longitude}?units=#{units}&exclude=hourly,daily,alerts"
-      my_request url, (error, res, body) ->
-        if error
-          console.log "Error con url #{url}: #{res}"
-        else
-          if IsJson body
-            data = JSON.parse body
-            forecast.icon = data.currently.icon
-            forecast.font = icons[forecast.icon].font
-            forecast.temperature = Math.round data.currently.temperature 
-            forecast.humidity = Math.round data.currently.humidity*100
-            forecast.clouds = Math.round data.currently.cloudCover*100
-            forecast.rain = (data.currently.precipIntensity*2.54).toFixed(2)
-            forecast.rain_prob = Math.round data.currently.precipProbability*100
-            forecast.wind = Math.round data.currently.windSpeed*1.609344
-            forecast.wind_dir = Math.round data.currently.windBearing
-          else
-            forecast.icon = icons['no-weather'].icon
-            forecast.font = icons['no-weather'].font
-            forecast.temperature = -1 
-            forecast.humidity = -1
-        url = "http://maps.googleapis.com/maps/api/geocode/json?latlng=#{latitude},#{longitude}&sensor=true"
-        my_request url, (error, res, body) ->
-          if error
-            console.log "Error con url #{url}: #{res}"
-          else
-            if IsJson body
-              place = JSON.parse body
-              forecast.number = 0
-              forecast.street = "Sin localizar"
-              forecast.city = "Sin localizar"
-              for component in place.results[0].address_components
-                #console.log component
-                if 'street_number' in component.types
-                  forecast.number = parseInt component.long_name
-                if 'route' in component.types
-                  forecast.street = component.long_name.stripAccents()
-                  forecast.street = forecast.street                  
-                if 'locality' in component.types
-                  forecast.city = component.long_name.stripAccents()
-              #forecast.number = parseInt place.results[0].address_components[0].long_name
-              #forecast.street = place.results[0].address_components[1].long_name.stripAccents()
-            response.writeHeader 200,
-              'Content-Type': 'application/json'
-            content = 
-            #"1": ['B', icons[forecast.icon].icon]
-              #"2": ['b', forecast.temperature]
-              #"3": ['B', forecast.humidity]
-              #"4": ['B', forecast.number]
-              #"5": forecast.street
-              #"6": forecast.city
-              "1": ['B', icons[forecast.icon].icon]
-              "2": forecast.temperature + "° " + forecast.humidity + "%"
-              "6": forecast.city
-              "5": ''
-            ln = 124 - (49 + 7*Object.keys(content).length + 1 + content["2"].length + content["6"].length + [(forecast.number.toString().length + 1) if forecast.number])
-            content["5"] = tidyString(forecast.street, ln) + [("," + forecast.number) if forecast.number]
-            
-            #content["5"] = tidyString(forecast.street, ln) + [(", " + forecast.number) if forecast.number]
-            response.write JSON.stringify content
-              
-            response.end()
-            console.log "Enviado respuesta --->"
-            console.log "    Temp: #{forecast.temperature} - Hum: #{forecast.humidity} - #{forecast.icon}"
-            console.log "    Lugar: #{forecast.street}, #{forecast.number} - #{forecast.city}"
-            console.log JSON.stringify content
-).listen 3000
-console.log "##############################################################"
-console.log "################### Server Running on 3000 ###################"
-console.log "##############################################################"
-
-
 IsJson = (str) ->
   try
     JSON.parse str
@@ -187,20 +170,28 @@ IsJson = (str) ->
   true
   
 tidyString = (str, ln) ->
-  str = str.replace /Calle de la /, ""
-  str = str.replace /Calle del /, ""
-  str = str.replace /Calle de /, ""
-  str = str.replace /Calle /, ""
-  str = str.replace /Avenida de la /, ""
-  str = str.replace /Avenida del /, ""
-  str = str.replace /Avenida de /, ""
-  str = str.replace /Avenida/, ""
-  str = str.replace /Paseo de la /, ""
-  str = str.replace /Paseo del /, ""
-  str = str.replace /Paseo de /, ""
-  str = str.replace /Paseo /, ""
+  str = str.replace /Calle de los /, "C. "
+  str = str.replace /Calle de las /, "C. "
+  str = str.replace /Calle de la /, "C. "
+  str = str.replace /Calle del /, "C. "
+  str = str.replace /Calle de /, "C. "
+  str = str.replace /Calle /, "C. "
+  str = str.replace /Avenida de los /, "Av. "
+  str = str.replace /Avenida de las /, "Av. "
+  str = str.replace /Avenida de la /, "Av. "
+  str = str.replace /Avenida del /, "Av. "
+  str = str.replace /Avenida de /, "Av. "
+  str = str.replace /Avenida/, "Av. "
+  str = str.replace /Paseo de los /, "P. "
+  str = str.replace /Paseo de las /, "P. "
+  str = str.replace /Paseo de la /, "P. "
+  str = str.replace /Paseo del /, "P. "
+  str = str.replace /Paseo de /, "P. "
+  str = str.replace /Paseo /, "P. "
+  str = str.replace /Plaza de los /, "Pz. "
+  str = str.replace /Plaza de las /, "Pz. "
+  str = str.replace /Plaza de la /, "Pz. "
+  str = str.replace /Plaza del /, "Pz. "
+  str = str.replace /Plaza de /, "Pz. "
+  str = str.replace /Plaza /, "Pz. "
   str = str.truncate ln
-  
-
-  
-
