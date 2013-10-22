@@ -30,3 +30,7 @@
   text-decoration:none;
   cursor: default;
 }
+
+nav .glyphicon {
+  top: 18px;
+}

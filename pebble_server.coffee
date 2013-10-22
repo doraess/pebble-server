@@ -84,8 +84,7 @@ server = (request, response) ->
           response.write JSON.stringify content              
           response.end()
           socketio.sockets.emit 'update', 
-            time: pad2 date.getHours() + ":" + pad2 date.getMinutes() + ":" + pad2 date.getSeconds()
-            data: forecast
+            forecast: forecast
           console.log "Enviado respuesta --->"
           console.log "    Temp: #{forecast.temperature} - Hum: #{forecast.humidity} - #{forecast.icon}"
           console.log "    Lugar: #{forecast.street}, #{forecast.number} - #{forecast.city}"
@@ -94,7 +93,8 @@ server = (request, response) ->
 app = require('http').createServer(server)
 app.listen 3000
 
-socketio = require('socket.io').listen(app)
+socketio = require('socket.io').listen app, 
+  log: false
 
 console.log "##############################################################"
 console.log "################### Server Running on 3000 ###################"

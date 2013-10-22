@@ -12,6 +12,9 @@ html
     nav(role="navigation").navbar.navbar-default
       .container
         .navbar-brand Pebble Server en Nostromo
+        span.glyphicon.pull-right
+        .navbar-text.pull-right.connection
+          
         //h1 Pebble Server
     .container
       .row
@@ -42,8 +45,6 @@ html
                 p.address #{data.street}, #{data.number} - #{data.city}
               .row
                 p.gps Latitud: #{data.latitude}, Longitud: #{data.longitude}
-              .row
-                p.connection
         .col-md-7
           #map-canvas
   script(src="/socket.io/socket.io.js")
@@ -53,7 +54,7 @@ html
     lat = #{data.latitude}
     long = #{data.longitude}
   :coffee
-    initialize = ->
+    initialize = (lat, long) ->
       mapOptions =
         zoom: 16
         center: new google.maps.LatLng(lat, long)
@@ -67,17 +68,23 @@ html
         map: map
         icon: image
       )
-    google.maps.event.addDomListener window, "load", initialize
+    google.maps.event.addDomListener window, "load", ->
+      initialize lat, long
     socket = io.connect "http://doraess.no-ip.org:3000"
     socket.on "connect", (socket) ->
-      $('.connection'). html "Conectado"
+      $('.glyphicon').removeClass "glyphicon-flash" 
+      $('.glyphicon').addClass "glyphicon-transfer" 
+      $('.connection').html "Conectado"
     socket.on "disconnect", (socket) ->
-      $('.connection'). html "Desconectado"
-    socket.on "update", (payload) ->
-      forecast = payload.data
-      lat = #{forecast.latitude}
-      long = #{forecast.longitude}
-      $('h4'). html "Actualización a las #{payload.time}"
+      $('.glyphicon').removeClass "glyphicon-transfer" 
+      $('.glyphicon').addClass "glyphicon-flash" 
+      $('.connection').html "Desconectado"
+    socket.on "update", (data) ->
+      forecast = data.forecast
+      lat = "#{forecast.latitude}"
+      long = "#{forecast.longitude}"
+      $('h4'). html "Actualización a las #{forecast.time}"
+      $('.summary-icon').attr "data-icon", "#{forecast.font}"
       $('.climate'). html "Temperatura: #{forecast.temperature}° - Humedad: #{forecast.humidity}%"
       $('.wind'). html " #{forecast.wind} km/h "
       $('.wind_dir'). html " #{forecast.wind_dir}°"
@@ -85,5 +92,5 @@ html
       $('.rain_prob'). html " #{forecast.rain_prob}% - #{forecast.rain} cm/h"
       $('.address'). html "#{forecast.street}, #{forecast.number} - #{forecast.city}"
       $('.gps'). html "Latitud: #{forecast.latitude}, Longitud: #{forecast.longitude}"
-      google.maps.event.addDomListener window, "load", initialize
+      initialize lat, long
    
