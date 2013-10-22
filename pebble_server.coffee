@@ -17,7 +17,6 @@ server = (request, response) ->
         fn = jade.compile data,
           'pretty': true
         html = fn 
-          time: pad2 current_time.getHours() + ":" + pad2 current_time.getMinutes() + ":" + pad2 current_time.getSeconds()
           data: forecast
         response.setHeader 'Content-Type', 'text/html'
         response.writeHead 200

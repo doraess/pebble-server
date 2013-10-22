@@ -27,21 +27,17 @@ html
               .row
                 .col-md-4
                   p
-                    span(data-icon='F').wind &nbsp;
-                    | #{data.wind} km/h
+                    span(data-icon='F').wind &nbsp;#{data.wind} km/h
                 .col-md-6
                   p
-                    span(data-icon='(').wind_dir &nbsp;
-                    | #{data.wind_dir}°
+                    span(data-icon='(').wind_dir &nbsp;#{data.wind_dir}°
               .row
                 .col-md-4
                   p
-                    span(data-icon='5').clouds &nbsp;
-                    | #{data.clouds}% 
+                    span(data-icon='5').clouds &nbsp;#{data.clouds}% 
                 .col-md-6
                   p
-                    span(data-icon='8').rain_prob &nbsp;
-                    | #{data.rain_prob}% - #{data.rain} cm/h
+                    span(data-icon='8').rain_prob &nbsp;#{data.rain_prob}% - #{data.rain} cm/h
               .row
                 p.address #{data.street}, #{data.number} - #{data.city}
               .row
@@ -57,38 +53,37 @@ html
     lat = #{data.latitude}
     long = #{data.longitude}
   :coffee
-    $(document).ready ->
-      initialize = ->
-        mapOptions =
-          zoom: 16
-          center: new google.maps.LatLng(lat, long)
-          mapTypeId: google.maps.MapTypeId.ROADMAP
-    
-        map = new google.maps.Map(document.getElementById("map-canvas"), mapOptions)
-        image = "images/pebble.png"
-        myLatLng = new google.maps.LatLng(lat, long)
-        beachMarker = new google.maps.Marker(
-          position: myLatLng
-          map: map
-          icon: image
-        )
-      google.maps.event.addDomListener window, "load", initialize
-  :coffee
+    initialize = ->
+      mapOptions =
+        zoom: 16
+        center: new google.maps.LatLng(lat, long)
+        mapTypeId: google.maps.MapTypeId.ROADMAP
+  
+      map = new google.maps.Map(document.getElementById("map-canvas"), mapOptions)
+      image = "images/pebble.png"
+      myLatLng = new google.maps.LatLng(lat, long)
+      beachMarker = new google.maps.Marker(
+        position: myLatLng
+        map: map
+        icon: image
+      )
+    google.maps.event.addDomListener window, "load", initialize
     socket = io.connect "http://doraess.no-ip.org:3000"
-    socket.on "connect", (data) ->
+    socket.on "connect", (socket) ->
       $('.connection'). html "Conectado"
-    socket.on "disconnect", (data) ->
+    socket.on "disconnect", (socket) ->
       $('.connection'). html "Desconectado"
-    socket.on "update", (data) ->
-      lat = #{data.latitude}
-      long = #{data.longitude}
-      $('h4'). html "Actualización a las #{data.time}"
-      $('.climate'). html "Temperatura: #{data.temperature}° - Humedad: #{data.humidity}%"
-      $('.wind'). html "&nbsp; #{data.wind} km/h "
-      $('.wind_dir'). html "&nbsp; #{data.wind_dir}°"
-      $('.clouds'). html "&nbsp; #{data.clouds}% "
-      $('.rain_prob'). html "&nbsp; #{data.rain_prob}% - #{data.rain} cm/h"
-      $('.address'). html "#{data.street}, #{data.number} - #{data.city}"
-      $('.rain_prob'). html "Latitud: #{data.latitude}, Longitud: #{data.longitude}"
+    socket.on "update", (payload) ->
+      forecast = payload.data
+      lat = #{forecast.latitude}
+      long = #{forecast.longitude}
+      $('h4'). html "Actualización a las #{payload.time}"
+      $('.climate'). html "Temperatura: #{forecast.temperature}° - Humedad: #{forecast.humidity}%"
+      $('.wind'). html " #{forecast.wind} km/h "
+      $('.wind_dir'). html " #{forecast.wind_dir}°"
+      $('.clouds'). html " #{forecast.clouds}% "
+      $('.rain_prob'). html " #{forecast.rain_prob}% - #{forecast.rain} cm/h"
+      $('.address'). html "#{forecast.street}, #{forecast.number} - #{forecast.city}"
+      $('.gps'). html "Latitud: #{forecast.latitude}, Longitud: #{forecast.longitude}"
       google.maps.event.addDomListener window, "load", initialize
    
