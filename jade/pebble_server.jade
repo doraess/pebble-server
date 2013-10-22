@@ -23,29 +23,31 @@ html
               span(data-icon='#{data.font}').summary-icon &nbsp;
             .col-md-9
               .row
-                p Temperatura: #{data.temperature}° - Humedad: #{data.humidity}%
+                p.climate Temperatura: #{data.temperature}° - Humedad: #{data.humidity}%
               .row
                 .col-md-4
                   p
-                    span(data-icon='F') &nbsp;
-                    | #{data.wind} km/h 
+                    span(data-icon='F').wind &nbsp;
+                    | #{data.wind} km/h
                 .col-md-6
                   p
-                    span(data-icon='(') &nbsp;
-                    | #{data.wind_dir}° 
+                    span(data-icon='(').wind_dir &nbsp;
+                    | #{data.wind_dir}°
               .row
                 .col-md-4
                   p
-                    span(data-icon='5') &nbsp;
+                    span(data-icon='5').clouds &nbsp;
                     | #{data.clouds}% 
                 .col-md-6
                   p
-                    span(data-icon='8') &nbsp;
+                    span(data-icon='8').rain_prob &nbsp;
                     | #{data.rain_prob}% - #{data.rain} cm/h
               .row
-                p #{data.street}, #{data.number} - #{data.city}
+                p.address #{data.street}, #{data.number} - #{data.city}
               .row
-                p Latitud: #{data.latitude}, Longitud: #{data.longitude}
+                p.gps Latitud: #{data.latitude}, Longitud: #{data.longitude}
+              .row
+                p.connection
         .col-md-7
           #map-canvas
   script(src="/socket.io/socket.io.js")
@@ -70,5 +72,23 @@ html
           map: map
           icon: image
         )
-      map = undefined
       google.maps.event.addDomListener window, "load", initialize
+  :coffee
+    socket = io.connect "http://doraess.no-ip.org:3000"
+    socket.on "connect", (data) ->
+      $('.connection'). html "Conectado"
+    socket.on "disconnect", (data) ->
+      $('.connection'). html "Desconectado"
+    socket.on "update", (data) ->
+      lat = #{data.latitude}
+      long = #{data.longitude}
+      $('h4'). html "Actualización a las #{data.time}"
+      $('.climate'). html "Temperatura: #{data.temperature}° - Humedad: #{data.humidity}%"
+      $('.wind'). html "&nbsp; #{data.wind} km/h "
+      $('.wind_dir'). html "&nbsp; #{data.wind_dir}°"
+      $('.clouds'). html "&nbsp; #{data.clouds}% "
+      $('.rain_prob'). html "&nbsp; #{data.rain_prob}% - #{data.rain} cm/h"
+      $('.address'). html "#{data.street}, #{data.number} - #{data.city}"
+      $('.rain_prob'). html "Latitud: #{data.latitude}, Longitud: #{data.longitude}"
+      google.maps.event.addDomListener window, "load", initialize
+   

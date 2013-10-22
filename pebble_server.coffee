@@ -17,7 +17,7 @@ server = (request, response) ->
         fn = jade.compile data,
           'pretty': true
         html = fn 
-          time: current_time.getHours() + ":" + current_time.getMinutes() + ":" + current_time.getSeconds()
+          time: pad2 current_time.getHours() + ":" + pad2 current_time.getMinutes() + ":" + pad2 current_time.getSeconds()
           data: forecast
         response.setHeader 'Content-Type', 'text/html'
         response.writeHead 200
@@ -84,6 +84,9 @@ server = (request, response) ->
           content["5"] = tidyString(forecast.street, ln) + [(", " + forecast.number) if forecast.number]
           response.write JSON.stringify content              
           response.end()
+          socketio.sockets.emit 'update', 
+            time: pad2 date.getHours() + ":" + pad2 date.getMinutes() + ":" + pad2 date.getSeconds()
+            data: forecast
           console.log "Enviado respuesta --->"
           console.log "    Temp: #{forecast.temperature} - Hum: #{forecast.humidity} - #{forecast.icon}"
           console.log "    Lugar: #{forecast.street}, #{forecast.number} - #{forecast.city}"
