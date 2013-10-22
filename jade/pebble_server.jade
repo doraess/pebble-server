@@ -1,0 +1,96 @@
+!!! 5
+html
+  head
+    //link(type='text/css', rel='stylesheet', href='/site.css')
+    link(href="//netdna.bootstrapcdn.com/bootswatch/3.0.0/spacelab/bootstrap.min.css", rel="stylesheet")
+    link(href="css/pebble_server.css", rel="stylesheet")
+    link(rel="SHORTCUT ICON", href="images/favicon.ico")
+    title= 'Pebble Server'
+    meta(charset='utf-8')
+    meta(name="viewport", content="width=device-width, initial-scale=1.0")
+  body
+    nav(role="navigation").navbar.navbar-default
+      .container
+        .navbar-brand Pebble Server en Nostromo
+        span.glyphicon.pull-right
+        .navbar-text.pull-right.connection
+          
+        //h1 Pebble Server
+    .container
+      .row
+        .col-md-5
+          h4 Actualización a las #{data.time}
+          //embed(src='images/1.svg', type='image/svg+xml').summary-icon
+          .row
+            .col-md-3
+              span(data-icon='#{data.font}').summary-icon &nbsp;
+            .col-md-9
+              .row
+                p.climate Temperatura: #{data.temperature}° - Humedad: #{data.humidity}%
+              .row
+                .col-md-4
+                  p
+                    span(data-icon='F').wind &nbsp;#{data.wind} km/h
+                .col-md-6
+                  p
+                    span(data-icon='(').wind_dir &nbsp;#{data.wind_dir}°
+              .row
+                .col-md-4
+                  p
+                    span(data-icon='5').clouds &nbsp;#{data.clouds}% 
+                .col-md-6
+                  p
+                    span(data-icon='8').rain_prob &nbsp;#{data.rain_prob}% - #{data.rain} cm/h
+              .row
+                p.address #{data.street}, #{data.number} - #{data.city}
+              .row
+                p.gps Latitud: #{data.latitude}, Longitud: #{data.longitude}
+        .col-md-7
+          #map-canvas
+  script(src="/socket.io/socket.io.js")
+  script(type='text/javascript',src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js")  
+  script(src="https://maps.googleapis.com/maps/api/js?v=3.exp&libraries=geometry&sensor=false")
+  script.
+    lat = #{data.latitude}
+    long = #{data.longitude}
+  :coffee
+    initialize = (lat, long) ->
+      mapOptions =
+        zoom: 16
+        center: new google.maps.LatLng(lat, long)
+        mapTypeId: google.maps.MapTypeId.ROADMAP
+  
+      map = new google.maps.Map(document.getElementById("map-canvas"), mapOptions)
+      image = "images/pebble.png"
+      myLatLng = new google.maps.LatLng(lat, long)
+      beachMarker = new google.maps.Marker(
+        position: myLatLng
+        map: map
+        icon: image
+      )
+    google.maps.event.addDomListener window, "load", ->
+      initialize lat, long
+    socket = io.connect "http://doraess.no-ip.org:3000"
+    socket.on "connect", (socket) ->
+      $('.glyphicon').removeClass "glyphicon-flash" 
+      $('.glyphicon').addClass "glyphicon-transfer" 
+      $('.connection').html "Conectado"
+    socket.on "disconnect", (socket) ->
+      $('.glyphicon').removeClass "glyphicon-transfer" 
+      $('.glyphicon').addClass "glyphicon-flash" 
+      $('.connection').html "Desconectado"
+    socket.on "update", (data) ->
+      forecast = data.forecast
+      lat = "#{forecast.latitude}"
+      long = "#{forecast.longitude}"
+      $('h4'). html "Actualización a las #{forecast.time}"
+      $('.summary-icon').attr "data-icon", "#{forecast.font}"
+      $('.climate'). html "Temperatura: #{forecast.temperature}° - Humedad: #{forecast.humidity}%"
+      $('.wind'). html " #{forecast.wind} km/h "
+      $('.wind_dir'). html " #{forecast.wind_dir}°"
+      $('.clouds'). html " #{forecast.clouds}% "
+      $('.rain_prob'). html " #{forecast.rain_prob}% - #{forecast.rain} cm/h"
+      $('.address'). html "#{forecast.street}, #{forecast.number} - #{forecast.city}"
+      $('.gps'). html "Latitud: #{forecast.latitude}, Longitud: #{forecast.longitude}"
+      initialize lat, long
+   
